@@ -3,303 +3,280 @@ import java.awt.Color;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Scanner;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JTextArea;
 
-/**
-* This class implements the game Lights Out, where
-* the user tries to turn off all of the lights(yellow buttons)
-* by selecting various buttons.  When selecting a button,
-* the adjacent buttons(top, right, left, bottom) will change
-* to the opposite color.  The game keeps count of how many times
-* the user has won the game, and notifies them when they have won.
-* There is also a "Randomize" and "Enter Manual Setup" button, which
-* will randomly place lights on the board and the manual setup allows the
-* user to individually select which buttons they want turned on.
-* 
-* @author James Fairbourn
-* @version u0407375
-* @version Program #9
-* @version CS1410-001
-* @version Fall 2011
-* @date 22 Nov. 2011
-*/
-public class LightsOut extends JFrame implements ActionListener
-{
+public class LightsOut extends JFrame implements ActionListener {
+	private int row;
+	private int col;
+	private int depth;
+	private ArrayList<String> rFile = new ArrayList<>();
+	private JButton[][] gameButtons;
+	private ArrayList<String[][]> availablePieces = new ArrayList<>();
+	private ArrayList<String> pieceDim = new ArrayList<>();
+	private int nextPieceNum;
+	private ArrayList<String> solution = new ArrayList<>();
+	private JTextArea np;
 
-	public static void main(String[] args) 
-	{
-		LightsOut light = new LightsOut();		//Creates a new LightsOut object, which is a new game.
-		light.setVisible(true);					//sets the LightsOut object to visible.
-
-	}
-	
-	//private GameBoard boardLayout;
-	private JButton[][] gameButtons;					//this two dimensional array will hold a reference the all of the buttons on the board.
-	private JButton manual;								//a button for the "Enter Manual Setup".
-	private JLabel wins;								//a label used to tell the user how many wins they currently have.
-	private int winCount;								//a count variable to hold the current number of wins.
-	public LightsOut()
-	{
-		winCount = 0;									//sets the winCount variable to 0.
-		//Terminates the program when the user closes the JFrame.
+	public LightsOut() {
+		readFile();
+		pieces();
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		
-		//Sets title and size of the JFrame.
+
+		// Sets title and size of the JFrame.
 		setTitle("Lights Out");
 		setSize(500, 500);
-		
-		JPanel mainPanel = new JPanel();				//The current panel that everything is placed in.
-		
-		mainPanel.setLayout(new BorderLayout());		//sets the layout of the mainPanel.
-		
-		//Buttons
-		JPanel buttonPanel = new JPanel();				//a new panel to hold all of the buttons on the game board.
-		gameButtons = new JButton[5][5];				//creates a new two dimensional array that will hold 25 buttons.
-		buttonPanel.setLayout(new GridLayout(5,5));		//sets the layout for the buttons.					
-		
-		for(int i = 0; i<5; i++)						//these two loops will add each button into the two dimensional array.
-		{
-			for(int j = 0; j<5; j++)
-			{
-				int random = (int)(Math.random()*3);	//sets up a variable for a random number, so the lights(buttons) will randomly be turned on.
-				JButton button = new JButton();			//creats a new JButton object.
-				gameButtons[i][j] = button;				//adds the button to the array.
-				button.setName(""+i+j);					//sets up the name of each button accordingly where they appear on the game board.
-				button.setBackground(Color.BLACK);		//sets each button to black, turned off.
-				if(random == 2)							//uses the random variable to change the color of the button to yellow, turned on.
-				{
-					backgroundColor(button);
-				}
-				button.addActionListener(this);			//adds an actionlistener to each button.
-				buttonPanel.add(button);				//adds the button to the buttonPanel.
-			
-			}
-		}
-		
-		mainPanel.add(buttonPanel, "Center");			//adds the buttonPanel to the mainPanel.
-		
-		//Creates the buttons used for different controls.
-		JButton random = new JButton("Randomize");		//Creates a new button that will be used for random lights to turn either on or off.
-		random.setName("Random");						//sets the name of the Randomize button.
-		random.addActionListener(this);					//adds an actionlistener.
-		manual = new JButton("Enter Manual Setup");		//Creates a new button that will be used for the user to manually change the board.
-		manual.setName("Manual");						//sets the name of the manual setup button.
-		manual.addActionListener(this);					//adds an actionlistener.
-		
-		
-		JPanel controls = new JPanel();			  		//Creates a new JPanel that will hold the different controls buttons.
-		controls.setLayout(new GridLayout(1,2));		//sets the layout of the controls JPanel.
-		controls.add(random,"South");					//adds the randomize button to the controls JPanel.
-		controls.add(manual,"South");					//adds the manual button to the controls Jpanel.
-		
-		
-		mainPanel.add(controls,"South");				//adds the controls JPanel to the mainPanel.
-		
-		//Labels
-		JPanel label = new JPanel();					//creates a new JPanel for labels to be added to the game board.
-		label.setLayout(new GridLayout(1,1));			//sets the layout of the labels JPanel.
-		label.add(wins = new JLabel());					//adds the wins label to the label JPanel.
-		wins.setText("Wins: " + winCount);				//sets the text of the wins label.
-		mainPanel.add(label, "North");					//the label JPanel is added to the mainPanel.
-		
-		setContentPane(mainPanel);						//sets the content pane of the frame.
-	}
-	/**
-	 * This method is used whenever
-	 * a button is clicked.
-	 */
-	@Override
-	public void actionPerformed(ActionEvent e) 
-	{
-		
-		JButton button = (JButton)e.getSource();		//gets the current button that was clicked.
-		String location = button.getName();				//gets the name of the current button
-		if(location.equals("Random"))					//if the "Randomize" button is clicked,
-		{												//then the random method is called.
-			randomSetting();
-			return;
-		}
-		if(location.equals("Manual Exit"))				//if the "Exit Manual Mode" button is clicked
-		{												//the name and text is changed and the game
-			manual.setText("Enter Manual Setup");		//returns to a normal state.
-			manual.setName("Manual");
-			return;
-		}
-		if(location.equals("Manual"))					//if the "Enter Manual Setup" button is clicked
-		{												//then the name and text are changed.
-			manual.setText("Exit Manual Mode");
-			manual.setName("Manual Exit");
-			return;
-		}
-		if(manual.getName().equals("Manual Exit"))		//while the name of the manual button is set
-		{												//as "Manual Exit", the manual setting will be 
-			manualSetting(button);						//called on the current button.
-			return;
-		}
-		char colChar = location.charAt(0);				//gets the char character a position 0 of the button name.
-		char rowChar = location.charAt(1);				//gets the char character a position 1 of the button name.
-		int col = Character.getNumericValue(colChar);	//this int converted from the char from pos 0 will be used a column indicator.
-		int row = Character.getNumericValue(rowChar);	//this int converted from the char from pos 0 will be used a row indicator.
-		
-		//temporary buttons for the adjacent locations 
-		//next to the selected button.
-		JButton tempSelected = new JButton();			//a temp button for the selected button
-		JButton tempTop = new JButton();				//a temp button for the button above the selected button
-		JButton tempLeft = new JButton();				//a temp button for the button left to the selected button
-		JButton tempRight = new JButton();				//a temp button for the button right to the selected button
-		JButton tempBottom = new JButton();				//a temp button for the button below the selected button
-		
-		tempSelected = gameButtons[col][row];			//gets the current button selected and stores it in the temp.
-		backgroundColor(tempSelected);					//calls the backgroundColor method to change the color of the button.
-		
-		//each button is attempted, but if it exceeds the Array, then it is caught and nothing is done.
-		try
-		{
-			tempTop = gameButtons[col-1][row];			//get the button that is above the selected button and stores it in temp.
-			backgroundColor(tempTop);					//calls the backgroundColor method to change the color of the button.
-		}
-		catch(ArrayIndexOutOfBoundsException i)
-		{
-			
-		}
-		
-		try
-		{
-			tempLeft = gameButtons[col][row-1];			//get the button that is left to the selected button and stores it in temp.
-			backgroundColor(tempLeft);					//calls the backgroundColor method to change the color of the button.
-		}
-		catch(ArrayIndexOutOfBoundsException i)
-		{
-			
-		}
-		try
-		{
-			tempRight = gameButtons[col][row+1];		//get the button that is right to the selected button and stores it in temp.
-			backgroundColor(tempRight);					//calls the backgroundColor method to change the color of the button.
-		}
-		catch(ArrayIndexOutOfBoundsException i)
-		{
-			
-		}
-		try
-		{
-			tempBottom = gameButtons[col+1][row];		//get the button that is below the selected button and stores it in temp.
-			backgroundColor(tempBottom);				//calls the backgroundColor method to change the color of the button.
-		}
-		catch(ArrayIndexOutOfBoundsException i)
-		{
-			
-		}
-	
-		isWon();										//the isWon method is called to see whether or not the game has been won,
-														//in other words if all of the lights have been turned off.
-	}
-	
 
-	/**
-	 * Changes the color of the button sent in
-	 * as a parameter to either yellow or black, 
-	 * depending on what the current color of the
-	 * parameter is.
-	 * @param b JButton object.
-	 */
-	private void backgroundColor(JButton b)
-	{
-		if(b.getBackground()==Color.BLACK)			//the button b is black, then it is changed to yellow, otherwise it is
-		{											//changed to black.
-			b.setBackground(Color.YELLOW);
-		}
-		else
-		{
-			b.setBackground(Color.BLACK);
-		}
-	}
-	/**
-	 * This method generates a random number
-	 * for each button in a two dimensional array
-	 * and will change the color of the button 
-	 * if the randomly generated integer equals 
-	 * 2.
-	 */
-	private void randomSetting()
-	{
-		for(JButton b[]: gameButtons)					//moves through each JButton in the two dimensional array.
-		{
-			for(JButton c : b)
-			{
-				int random = (int)(Math.random()*6);	//generates a random number between 0 and 5.
-				if(random == 2)							//if the number equals 2, the color of button is changed.
-				{
-					backgroundColor(c);
-				}
-				
+		JPanel mainPanel = new JPanel();
+		mainPanel.setLayout(new BorderLayout());
+
+		int[][] layoutMatrix = initialMatrix();
+
+		// Buttons
+		JPanel buttonPanel = new JPanel();
+		gameButtons = new JButton[getRow()][getCol()];
+		buttonPanel.setLayout(new GridLayout(getRow(), getCol()));
+
+		for (int i = 0; i < getRow(); i++) {
+			for (int j = 0; j < getCol(); j++) {
+
+				JButton button = new JButton();
+				gameButtons[i][j] = button;
+				button.setName("" + i + j);
+				button.setBackground(Color.BLACK);
+
+				int state = layoutMatrix[i][j];
+				for(int s=0; s<state;s++) // changes color according to state
+					backgroundColor(button);
+			
+				button.addActionListener(this);
+				buttonPanel.add(button);
 			}
 		}
+
+		mainPanel.add(buttonPanel, "Center");
+		
+		setContentPane(mainPanel);
+		nextPiece();
+		
 	}
-	/**
-	 * This method utilizes the backgroundColor
-	 * method to change the color of the JButton
-	 * sent in as a parameter.
-	 * @param b JButton object.
-	 */
-	private void manualSetting(JButton b)
-	{
-		JButton temp = new JButton();		//creates a temporary JButton.
-		temp = b;							//sets the parameter as the temp.
-		backgroundColor(temp);				//calls the backgroundColor method 
-	}										//to change the color of the current button.
-	/**
-	 * This method is used to determine
-	 * if the game board is in a winning
-	 * state.
-	 */
-	private void isWon()
-	{
-		int count = 0;						//a count variable.
-		for(JButton b[]: gameButtons)		//moves through the two dimensional array for each
-		{									//JButton.
-			for(JButton c: b)
-			{
-				if(c.getBackground()==Color.BLACK)		//if the current JButton color is black, then the count is incremented.
-				{
+
+	public void readFile() {
+		ArrayList<String> result = new ArrayList<>();
+		System.out.println("Input level (ex:03): ");
+		Scanner sc = new Scanner(System.in);
+		try {
+			File level = new File(sc.nextLine()+".txt");
+
+			Scanner s = new Scanner(level);
+
+			while (s.hasNextLine()) {
+				result.add(s.nextLine());
+			}
+			s.close();
+			setrFile(result);
+		} catch (FileNotFoundException e) {
+			System.out.println("Choose valid level");
+			readFile();
+		}
+
+	}
+
+	private int[][] initialMatrix() {
+		ArrayList<String> fileArray = getrFile();
+		String[] result = fileArray.get(1).split(",");
+		int nrow = 0;
+		int ncolumns = result[0].length();
+		for (String element : result) {
+			nrow++;
+	//		System.out.println(element);
+		}
+		setRow(nrow);
+		setCol(ncolumns);
+		setDepth(Integer.parseInt(fileArray.get(0)));
+	//	System.out.println("rows " + getRow() + " columns " + getCol() + " Depth " + getDepth());
+		String initialState = fileArray.get(1).replaceAll(",", "");
+
+		int[][] layoutMatrix = new int[nrow][ncolumns];
+		int count = 0;
+		for (int i = 0; i < nrow; i++) {
+			for (int j = 0; j < ncolumns; j++) {
+				char n = initialState.charAt(count);
+				layoutMatrix[i][j] = Character.getNumericValue(n);
+				count++;
+			}
+		}
+		return layoutMatrix;
+
+	}
+
+	private void pieces() {
+		ArrayList<String> fileArray = getrFile();
+		String[] p = fileArray.get(2).split(" "); // each piece
+
+		for (String element : p) {
+			// find out nr of rows and columns
+			String[] pState = element.split(",");
+			int nrow = pState.length;
+			int ncolumns = pState[0].length();
+			pieceDim.add("" + nrow + ncolumns);
+
+			// place states inside matrix
+			String sp = element.replaceAll(",", "");// state inside the piece
+			int count = 0;
+			String[][] pieceMatrix = new String[nrow][ncolumns];
+			for (int i = 0; i < nrow; i++) {
+				for (int j = 0; j < ncolumns; j++) {
+					pieceMatrix[i][j] = String.valueOf(sp.charAt(count));
 					count++;
 				}
 			}
+			availablePieces.add(pieceMatrix);
 		}
-		if(count == 25)									//if the count equals 25 then the game board is in a winning state.
-		{
-			JOptionPane.showMessageDialog(this, "Congratulations, you have won!");		//user notified the game has been won.
-			winCount++;																	//winCount variable incremented by 1.
-			wins.setText("Wins: " + winCount);											//sets status of current wins to the user.
-			restart();																	//resets the current game board after the game has been won.
-		}	
+		setNextPieceNum(0);
 	}
-	/**
-	 * This method is used to
-	 * restart the current game board and
-	 * utilizes the backgroundColor method.
-	 * 
-	 */
-	private void restart()
-	{
-		for(JButton b[]: gameButtons)					//moves through the two dimensional array for each JButton.
-		{
-			for(JButton c : b)
-			{
-				int random = (int)(Math.random()*4);	//randomly generates a number between 0 and 3.
-				if(random == 2)							//if the number is two, the current JButton color is changed.
-				{
-					backgroundColor(c);
-				}
-				
+
+	private void nextPiece() {
+		
+		String[][] p = availablePieces.get(getNextPieceNum());
+		char rowChar = pieceDim.get(nextPieceNum).charAt(0); // get n of rows in piece
+		char colChar = pieceDim.get(nextPieceNum).charAt(1); // get n of columns in piece
+		int col = Character.getNumericValue(colChar);
+		int row = Character.getNumericValue(rowChar);
+
+		System.out.println("-------NEXT PIECE---------");
+		String printable = "";
+		for (int i = 0; i < row; i++) {
+			for (int j = 0; j < col; j++) {
+				printable=printable+(p[i][j]);
 			}
+			printable=printable+ "\n";
+		}
+		System.out.println(printable);
+		
+	}
+
+
+
+	@Override
+	public void actionPerformed(ActionEvent e) {
+
+		JButton button = (JButton) e.getSource(); // get clicked button
+
+		String location = button.getName(); // gets the name of the current button
+
+		char colChar = location.charAt(1);
+		char rowChar = location.charAt(0);
+		int col = Character.getNumericValue(colChar);
+		int row = Character.getNumericValue(rowChar);
+
+		int pieceRow = Character.getNumericValue(pieceDim.get(nextPieceNum).charAt(0));
+		int pieceCol = Character.getNumericValue(pieceDim.get(nextPieceNum).charAt(1));
+
+		if (getNextPieceNum() < availablePieces.size() - 1) { 						//checks if there is another available piece
+			if (pieceRow - 1 + row < getRow() && pieceCol - 1 + col < getCol()) { 	//checks if piece is in bounds
+				solution.add("(" + rowChar + "," + colChar + ")");
+
+				String[][] piece = availablePieces.get(getNextPieceNum());				
+				for (int i = 0; i < pieceRow; i++) {
+					for (int j = 0; j < pieceCol; j++) {
+						if (piece[i][j].equals("X")) {
+							JButton temp = new JButton();
+							temp = gameButtons[row+i][col+j];
+							backgroundColor(temp);							
+						}
+					}
+				}
+				setNextPieceNum(getNextPieceNum() + 1);
+				nextPiece();
+			} else {
+				JOptionPane.showMessageDialog(this, "Piece out of bounds!");
+			}
+		} else {
+			JOptionPane.showMessageDialog(this, "No more pieces");
+			System.out.println("Solution: " + solution);
 		}
 	}
+
+	private void backgroundColor(JButton b) {
+		switch (depth) {
+		case 2:
+			if (b.getBackground() == Color.BLACK) {
+				b.setBackground(Color.YELLOW);
+			} else {
+				b.setBackground(Color.BLACK);
+			}
+			break;
+		case 3:
+			if (b.getBackground() == Color.BLACK) {
+				b.setBackground(Color.YELLOW);
+			} else if (b.getBackground() == Color.YELLOW) {
+				b.setBackground(Color.RED);
+			} else
+				b.setBackground(Color.BLACK);
+
+			break;
+		case 4:
+			if (b.getBackground() == Color.BLACK) {
+				b.setBackground(Color.YELLOW);
+			} else if (b.getBackground() == Color.YELLOW) {
+				b.setBackground(Color.RED);
+			} else if (b.getBackground() == Color.RED) {
+				b.setBackground(Color.GREEN);
+			} else
+				b.setBackground(Color.BLACK);
+			break;
+
+		}
+
+	}
+
+	public ArrayList<String> getrFile() {
+		return rFile;
+	}
+
+	public void setrFile(ArrayList<String> rFile) {
+		this.rFile = rFile;
+	}
+
+	public int getRow() {
+		return row;
+	}
+
+	public void setRow(int row) {
+		this.row = row;
+	}
+
+	public int getCol() {
+		return col;
+	}
+
+	public void setCol(int col) {
+		this.col = col;
+	}
+
+	public int getDepth() {
+		return depth;
+	}
+
+	public void setDepth(int depth) {
+		this.depth = depth;
+	}
+
+	public int getNextPieceNum() {
+		return nextPieceNum;
+	}
+
+	public void setNextPieceNum(int nextPiece) {
+		this.nextPieceNum = nextPiece;
+	}
+
 }
-
-
